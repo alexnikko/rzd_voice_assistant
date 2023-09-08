@@ -1,0 +1,8 @@
+pandas
+torch
+sentence-transformers
+openai-whisper
+tiktoken
+soundfile
+librosa
+"nemotoolkit[all]"
