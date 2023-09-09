@@ -8,14 +8,9 @@ class AudioPlayerWidget extends StatefulWidget {
   /// Path from where to play recorded audio
   final String source;
 
-  /// Callback when audio file should be removed
-  /// Setting this to null hides the delete button
-  final VoidCallback onDelete;
-
   const AudioPlayerWidget({
     Key? key,
     required this.source,
-    required this.onDelete,
   }) : super(key: key);
 
   @override
@@ -90,6 +85,41 @@ class AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     });
   }
 
+  String _formatNumber(int number) {
+    String numberStr = number.toString();
+    if (number < 10) {
+      numberStr = '0$numberStr';
+    }
+
+    return numberStr;
+  }
+
+  // Get the current position.
+  String _getPositionAsString() {
+    final position = _position;
+    if (position == null) {
+      return '--:--';
+    }
+
+    final minutes = position.inMinutes;
+    final seconds = position.inSeconds % 60;
+
+    return '${_formatNumber(minutes)}:${_formatNumber(seconds)}';
+  }
+
+  // Get the total duration.
+  String _getDurationAsString() {
+    final duration = _duration;
+    if (duration == null) {
+      return '--:--';
+    }
+
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+
+    return '${_formatNumber(minutes)}:${_formatNumber(seconds)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -98,65 +128,51 @@ class AudioPlayerWidgetState extends State<AudioPlayerWidget> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                _buildControl(),
-                _buildSlider(constraints.maxWidth),
-                IconButton(
-                  icon: const Icon(
-                    Icons.delete,
-                    color: Color(0xFF73748D),
-                    size: _deleteBtnSize,
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Row(
+            mainAxisSize: MainAxisSize.max,
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              _buildControl(),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSlider(constraints.maxWidth),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12.0),
+                    child: Text(
+                      '${_getPositionAsString()} / ${_getDurationAsString()}',
+                    ),
                   ),
-                  onPressed: () {
-                    if (_audioPlayer.state == PlayerState.playing) {
-                      stop().then((value) => widget.onDelete());
-                    } else {
-                      widget.onDelete();
-                    }
-                  },
-                ),
-              ],
-            ),
-            Text('${_duration ?? 0.0}'),
-          ],
+                ],
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
   Widget _buildControl() {
-    Icon icon;
-    Color color;
-
-    if (_audioPlayer.state == PlayerState.playing) {
-      icon = const Icon(Icons.pause, color: Colors.red, size: 30);
-      color = Colors.red.withOpacity(0.1);
-    } else {
-      final theme = Theme.of(context);
-      icon = Icon(Icons.play_arrow, color: theme.primaryColor, size: 30);
-      color = theme.primaryColor.withOpacity(0.1);
-    }
-
-    return ClipOval(
-      child: Material(
-        color: color,
-        child: InkWell(
-          child:
-              SizedBox(width: _controlSize, height: _controlSize, child: icon),
-          onTap: () {
-            if (_audioPlayer.state == PlayerState.playing) {
-              pause();
-            } else {
-              play();
-            }
-          },
-        ),
+    return IconButton(
+      padding: EdgeInsets.zero,
+      onPressed: () {
+        if (_audioPlayer.state == PlayerState.playing) {
+          pause();
+        } else {
+          play();
+        }
+      },
+      icon: Icon(
+        _audioPlayer.state == PlayerState.playing
+            ? Icons.pause_circle_filled_outlined
+            : Icons.play_circle_fill_outlined,
+        size: 36,
+        color: Theme.of(context).primaryColor,
       ),
     );
   }

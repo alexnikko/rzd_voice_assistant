@@ -4,11 +4,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:de_train/src/screens/audio_player.dart';
 import 'package:de_train/src/utils/const.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
-import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -22,6 +23,7 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
+  final Dio dio = Dio();
   String text = '';
 
   late final TextEditingController _textEditingController;
@@ -90,7 +92,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _textEditingController.dispose();
     _timer?.cancel();
-    // _recordSub?.cancel();
+    _recordSub?.cancel();
     _amplitudeSub?.cancel();
     _audioRecorder.dispose();
     super.dispose();
@@ -159,9 +161,9 @@ class _ChatPageState extends State<ChatPage> {
             _messages[index] = updatedMessage;
           });
 
-          final client = http.Client();
-          final request = await client.get(Uri.parse(message.uri));
-          final bytes = request.bodyBytes;
+          final request = await dio.get(message.uri);
+
+          final bytes = request.data as List<int>; // List<int> of bytes
           final documentsDir = (await getApplicationDocumentsDirectory()).path;
           localPath = '$documentsDir/${message.name}';
 
@@ -291,6 +293,51 @@ class _ChatPageState extends State<ChatPage> {
     return numberStr;
   }
 
+  Widget? _buildLeading() {
+    return _isRecordingAudio
+        ? IconButton(
+            onPressed: _dismissRecording,
+            icon: Icon(
+              Icons.delete_forever,
+            ),
+          )
+        : null;
+  }
+
+  Widget? _buildTrailing() {
+    return text.isNotEmpty
+        ? IconButton(
+            onPressed: _sendTextMessage,
+            icon: Icon(Icons.send),
+          )
+        : IconButton(
+            icon: Icon(Icons.mic),
+            onPressed: _handleMicrophoneButtonPressed,
+          );
+  }
+
+  Widget _buildTitle() {
+    return _isRecordingAudio
+        ? _buildTimer()
+        : TextField(
+            autofocus: true,
+            canRequestFocus: true,
+            autocorrect: true,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: InputDecoration(
+              hintText: 'Type a message',
+              // Hide underline
+              border: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+            ),
+            controller: _textEditingController,
+            onSubmitted: (_) {
+              _sendTextMessage();
+            },
+          );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -301,9 +348,20 @@ class _ChatPageState extends State<ChatPage> {
         onSendPressed: (_) {},
         theme: DefaultChatTheme(
           backgroundColor: Color(0xFFE5E8F2),
+          // Change the color of the message bubbles
+          primaryColor: Colors.white,
+          receivedMessageBodyTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+          ),
+          sentMessageBodyTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 16,
+          ),
         ),
         messages: _messages,
-        customBottomWidget: SizedBox(
+        customBottomWidget: Container(
+          color: Colors.white,
           height: 66,
           child: SizedBox.expand(
             child: Card(
@@ -311,37 +369,9 @@ class _ChatPageState extends State<ChatPage> {
               elevation: 0,
               child: Center(
                 child: ListTile(
-                  leading: _isRecordingAudio
-                      ? IconButton(
-                          onPressed: _dismissRecording,
-                          icon: Icon(
-                            Icons.delete_forever,
-                          ),
-                        )
-                      : null,
-                  trailing: text.isNotEmpty
-                      ? IconButton(
-                          onPressed: _sendTextMessage,
-                          icon: Icon(Icons.send),
-                        )
-                      : IconButton(
-                          icon: Icon(Icons.mic),
-                          onPressed: _handleMicrophoneButtonPressed,
-                        ),
-                  title: _isRecordingAudio
-                      ? _buildTimer()
-                      : TextField(
-                          autocorrect: true,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: InputDecoration(
-                            hintText: 'Type a message',
-                            // Hide underline
-                            border: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                          ),
-                          controller: _textEditingController,
-                        ),
+                  leading: _buildLeading(),
+                  trailing: _buildTrailing(),
+                  title: _buildTitle(),
                   onTap: null,
                 ),
               ),
@@ -353,10 +383,10 @@ class _ChatPageState extends State<ChatPage> {
           required int messageWidth,
         }) {
           return Container(
-            height: 60,
-            color: primaryColor,
             width: messageWidth.toDouble(),
-            // child:
+            child: AudioPlayerWidget(
+              source: message.uri,
+            ),
           );
         },
         onMessageTap: _handleMessageTap,
