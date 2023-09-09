@@ -1,6 +1,6 @@
 {
-    "name": "de_train",
-    "short_name": "de_train",
+    "name": "rzd_voice_assistant",
+    "short_name": "rzd_voice_assistant",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
