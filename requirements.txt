@@ -8,3 +8,4 @@ librosa
 "nemotoolkit[all]"
 fastapi
 uvicorn
+python-multipart

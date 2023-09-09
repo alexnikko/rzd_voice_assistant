@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import torch
 from fastapi import FastAPI
@@ -8,6 +9,8 @@ from fastapi.param_functions import Depends
 from pydantic import BaseModel
 from fastapi import UploadFile, File
 import soundfile as sf
+from fastapi.responses import JSONResponse
+from fastapi import Response
 
 from rzd.tts import TTS
 from rzd.stt import STT
@@ -32,10 +35,10 @@ class Endpoints:
 
         self.emb = Embedder(model_name_or_path='d0rj/ruRoberta-distilled', device=self.device)
 
-        self.db = Database(path_to_documents_database='data/documents/appendix_1.csv', embedder=self.emb)
+        self.db = Database(path_to_documents_database='../data/documents/appendix_1.csv', embedder=self.emb)
         self.db.init_database()
 
-        self.tts = TTS('kseniya_16khz', 'ru', self.device)
+        self.tts = TTS(self.device)
         self.stt = STT('nvidia/stt_ru_conformer_transducer_large', device=self.device)
 
     async def audio_to_text(self, data: STTPayload = Depends()) -> str:
@@ -46,11 +49,11 @@ class Endpoints:
         result = self.stt.stt(audio_data, sample_rate)[0]
         return result
 
-    async def text_query(self, data: TextSearchPayload = Depends()) -> dict:
+    async def text_query(self, data: TextSearchPayload = Depends()) -> list:
         text = data.text
         df = self.db.search(text)
-        result = df.to_dict()
-        return result
+        result = df.to_dict('records')
+        return result  # try to sort this mfker
 
     async def text_to_audio(self, data: TTSPayload = Depends()) -> StreamingResponse:
         audio = self.tts.get_speech(data.text)
@@ -66,8 +69,12 @@ class Endpoints:
 app = FastAPI()
 endpoints = Endpoints()
 
-app.post("/api/audio_to_text")(endpoints.audio_to_text)
-app.post("/api/text_query")(endpoints.text_query)
+app.post("/api/audio_to_text")(
+    app.get("/api/audio_to_text")(endpoints.audio_to_text)
+)
+app.post("/api/text_query")(
+    app.get("/api/text_query")(endpoints.text_query)
+)
 app.post("/api/text_to_audio")(
     app.get("/api/text_to_audio")(endpoints.text_to_audio)
 )
@@ -76,4 +83,5 @@ app.post("/api/text_to_audio")(
 if __name__ == "__main__":
     # export PYTHONPATH="${PYTHONPATH}:/home/fires/projects/voice_verification/code_sanya/rzd_voice_assistant"
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=6555)

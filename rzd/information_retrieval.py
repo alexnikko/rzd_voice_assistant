@@ -42,14 +42,13 @@ class Database:
             return self.embedder
 
     def search(self, query: str, embedder: Embedder = None, k: int = 5) -> pd.DataFrame:
-        """search in index and return top-1 answer by most similar question"""
+        """search in index and return top-k answer by most similar question"""
         embedder = self._get_or_set_embedder(embedder)
         query_emb = embedder.get_embeddings([query])
         cos_sims = torch.cosine_similarity(query_emb, self.database)
         idx = torch.topk(cos_sims, k=k).indices.numpy()
         item = self.df.iloc[idx]
         item['cos_sim'] = cos_sims[idx]
-        # elimination = item.loc['elimination']
         elimination = item
         return elimination
 
@@ -70,6 +69,6 @@ if __name__ == '__main__':
     db = Database(path_to_documents_database='data/documents/appendix_1.csv', embedder=emb)
     db.init_database()
 
-    query = 'маслопрокачивающий насос не работает. КМН не включается'
+    query = 'насос не работает'
     answer = db.search(query)
     print(answer)
