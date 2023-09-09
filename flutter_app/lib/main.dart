@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:de_train/src/screens/audio_player.dart';
 import 'package:de_train/src/utils/audio_config.dart';
@@ -30,6 +31,8 @@ class _AudioRecorderState extends State<_AudioRecorder> {
   StreamSubscription<Amplitude>? _amplitudeSub;
   Amplitude? _amplitude;
 
+  List<Widget> waveforms = [];
+
   @override
   void initState() {
     _audioRecorder = Record();
@@ -41,7 +44,22 @@ class _AudioRecorderState extends State<_AudioRecorder> {
     _amplitudeSub = _audioRecorder
         .onAmplitudeChanged(const Duration(milliseconds: 300))
         .listen((amp) {
-      setState(() => _amplitude = amp);
+      setState(() {
+        _amplitude = amp;
+
+        if (waveforms.length > 36) {
+          waveforms.removeAt(0);
+        }
+
+        waveforms.add(
+          Container(
+            // duration: const Duration(milliseconds: 100),
+            height: max(1, 200 + _amplitude!.current * 4),
+            width: 7,
+            color: Colors.red,
+          ),
+        );
+      });
     });
 
     super.initState();
@@ -159,6 +177,7 @@ class _AudioRecorderState extends State<_AudioRecorder> {
 
   @override
   Widget build(BuildContext context) {
+    print("Current amplitude: ${_amplitude?.current}");
     return MaterialApp(
       home: Scaffold(
         body: Column(
@@ -175,9 +194,20 @@ class _AudioRecorderState extends State<_AudioRecorder> {
               ],
             ),
             if (_amplitude != null) ...[
-              const SizedBox(height: 40),
-              Text('Current: ${_amplitude?.current ?? 0.0}'),
-              Text('Max: ${_amplitude?.max ?? 0.0}'),
+              SizedBox(
+                height: 250,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: waveforms,
+                ),
+              )
+              // WaveformExample(
+              //   maxAmplitude: _amplitude!.max,
+              //   currentAmplitude: _amplitude!.current,
+              // ),
+              // const SizedBox(height: 40),
+              // Text('Current: ${_amplitude?.current ?? 0.0}'),
+              // Text('Max: ${_amplitude?.max ?? 0.0}'),
             ],
           ],
         ),

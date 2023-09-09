@@ -36,6 +36,7 @@ dependencies:
   path: ^1.8.3
   path_provider: ^2.1.1
   audioplayers: ^5.1.0
+  flutter_chat_ui: ^1.6.9
 
 dev_dependencies:
   flutter_test:
