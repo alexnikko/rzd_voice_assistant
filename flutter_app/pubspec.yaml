@@ -31,17 +31,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.2
   record: ^4.4.4
   permission_handler: ^10.4.5
   path: ^1.8.3
   path_provider: ^2.1.1
-  just_audio: ^0.9.34
-  rxdart: ^0.27.7
-  audio_session: ^0.1.16
+  audioplayers: ^5.1.0
 
 dev_dependencies:
   flutter_test:
