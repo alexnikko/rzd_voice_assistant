@@ -1,12 +1,15 @@
 // ignore_for_file: prefer_const_constructors
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:de_train/src/screens/audio_player.dart';
 import 'package:de_train/src/utils/const.dart';
+import 'package:de_train/src/utils/web_adapter.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -23,7 +26,7 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final Dio dio = Dio();
+  late final Dio dio;
   String text = '';
 
   late final TextEditingController _textEditingController;
@@ -56,6 +59,12 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+
+    dio = Dio();
+
+    if (kIsWeb) {
+      dio.httpClientAdapter = MyAdapter();
+    }
 
     _textEditingController = TextEditingController();
     _textEditingController.addListener(() {
@@ -161,9 +170,16 @@ class _ChatPageState extends State<ChatPage> {
             _messages[index] = updatedMessage;
           });
 
+          // final request = await client.get(Uri.parse(message.uri));
+          // final bytes = request.bodyBytes;
+
           final request = await dio.get(message.uri);
 
           final bytes = request.data as List<int>; // List<int> of bytes
+
+          // final request = await dio.get(message.uri);
+
+          // final bytes = request.data as List<int>; // List<int> of bytes
           final documentsDir = (await getApplicationDocumentsDirectory()).path;
           localPath = '$documentsDir/${message.name}';
 
@@ -217,19 +233,7 @@ class _ChatPageState extends State<ChatPage> {
 
     _addMessage(textMessage);
 
-    // ToDO remove after testing
-    // Add a fake response after 2 seconds
-    Future.delayed(Duration(milliseconds: 2000), () {
-      setState(() {
-        _messages.insert(
-          0,
-          textMessage.copyWith(
-            author: _assistant,
-            id: const Uuid().v4(),
-          ),
-        );
-      });
-    });
+    _sendTextRequest(trimmedText);
   }
 
   void _handleMicrophoneButtonPressed() {
@@ -336,6 +340,100 @@ class _ChatPageState extends State<ChatPage> {
               _sendTextMessage();
             },
           );
+  }
+
+  Future<void> _sendTextRequest(String query) async {
+    const String url = "http://212.41.27.225:6555";
+    const String endpoint = "/api/text_query";
+
+    final Map<String, dynamic> queryParams = {
+      "text": query,
+    };
+
+    // final Response<Map<String, dynamic>> request = await dio.post(
+    final Response<List<dynamic>> request = await dio.post(
+      url + endpoint,
+      queryParameters: queryParams,
+      options: Options(
+        contentType: "application/json",
+        responseType: ResponseType.json,
+      ),
+    );
+
+    print(request.data);
+
+    JsonEncoder encoder = new JsonEncoder.withIndent('  ');
+    String prettyprint = encoder.convert(request.data);
+    print(prettyprint);
+
+    if (request.data == null) {
+      return;
+    }
+
+    // Concat the json into List of JSON
+    // final List<dynamic> jsonList = [];
+
+    // final Map<String, dynamic> N = request.data!['N'];
+
+    // for (var element in N.keys) {
+    //   Map<String, dynamic> q = {
+    //     "N": element,
+    //     "topic": request.data!['topic'][element],
+    //     "malfunction": request.data!['malfunction'][element],
+    //     "cause": request.data!['cause'][element],
+    //     "elimination": request.data!['elimination'][element],
+    //     "cos_sim": request.data!['cos_sim'][element],
+    //   };
+
+    //   jsonList.add(q);
+    // }
+
+    // jsonList.sort(
+    //   (a, b) => b['cos_sim'].compareTo(a['cos_sim']),
+    // );
+
+    // Initialize the final list
+    final List<dynamic> finalList = request.data!;
+
+    // Init message list
+    final List<types.Message> messageList = [];
+
+    for (int i = 0; i < 3; i++) {
+      // Cause
+      final String cause = finalList[i]["cause"];
+
+      // Elimination
+      final String elimination = finalList[i]["elimination"];
+
+      // Reglament number
+      final String reglament = finalList[i]["N"].toString();
+
+      // Solution
+      final String solution =
+          "Возможная причина: $cause\n\nРешение: $elimination\n\nСогласно пункту регламента №$reglament";
+
+      await Future.delayed(Duration(milliseconds: 50));
+
+      final textMessage = types.TextMessage(
+        author: _assistant,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        id: const Uuid().v4(),
+        text: solution,
+      );
+
+      messageList.add(textMessage);
+    }
+
+    await Future.delayed(
+      Duration(
+        milliseconds: Random().nextInt(2000) + 1000,
+      ),
+      () {
+        for (var element in messageList) {
+          _addMessage(element);
+        }
+      },
+    );
   }
 
   @override
