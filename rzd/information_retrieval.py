@@ -49,7 +49,6 @@ class Database:
         idx = torch.topk(cos_sims, k=k).indices.numpy()
         item = self.df.iloc[idx]
         item['cos_sim'] = cos_sims[idx]
-        # elimination = item.loc['elimination']
         elimination = item
         return elimination
 
@@ -70,6 +69,6 @@ if __name__ == '__main__':
     db = Database(path_to_documents_database='data/documents/appendix_1.csv', embedder=emb)
     db.init_database()
 
-    query = 'маслопрокачивающий насос не работает. КМН не включается'
+    query = 'насос не работает'
     answer = db.search(query)
     print(answer)
