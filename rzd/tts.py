@@ -198,21 +198,23 @@ class TTransformer:
 
     def latin_to_text(self, text: str) -> str:
         r = r'\b[A-Z]{1,}\b'
-        s = '<prosody rate="slow">' + re.sub(r, lambda x: ' '.join([' ' + self.latin_d[i] + ' ' for i in x.group()]), text)
+        s = '<prosody rate="slow">' + re.sub(r, lambda x: ' '.join([' ' + self.latin_d[i] + ' ' for i in x.group()]),
+                                             text)
         return s + '</prosody>'
 
     def abbr_to_text(self, text: str) -> str:
         r = r'\b[А-Я]{1,}\b'
-        s = '<prosody rate="slow">' + re.sub(r, lambda x:  ' '.join(
+        s = '<prosody rate="slow">' + re.sub(r, lambda x: ' '.join(
             [' ' + self.russian_d[i] + ' ' for i in x.group()]), text)
         return s + '</prosody>'
 
-    def zapyat_to_pause(self, text:str)->str:
-        text =text.replace('.', f'<break time="{np.random.randint(500, 700)}ms"/>')
+    def zapyat_to_pause(self, text: str) -> str:
+        text = text.replace('.', f'<break time="{np.random.randint(500, 700)}ms"/>')
         text = text.replace(',', f'<break time="{np.random.randint(200, 500)}ms"/>')
         text = text.replace('!', f'<break time="{np.random.randint(500, 700)}ms"/>')
         text = text.replace('?', f'<break time="{np.random.randint(500, 700)}ms"/>')
         return text
+
 
 def create_db():
     path = "C:/projects/other/hackaton/code_sanya/rzd_voice_assistant/data/documents/"
@@ -233,13 +235,17 @@ class TTS:
         self.sample_rate = 24000
         self.t = TTransformer()
 
-    def get_speech(self, text: str, speaker: str = 'kseniya'):
+    def preprocess_text(self, text: str) -> str:
         text = self.t.numbers_to_text(text)
         text = self.t.latin_to_text(text)
         text = self.t.abbr_to_text(text)
         text = self.t.zapyat_to_pause(text)
+        return text
 
+    def get_speech(self, text: str, speaker: str = 'kseniya'):
+        text = self.preprocess_text(text)
         text = '<speak>\n' + text + '\n</speak>'
+
         audio = self.model.apply_tts(
             ssml_text=text,
             speaker=speaker,
