@@ -47,5 +47,11 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Нам необходим доступ к микрофону для обработки голосового запроса</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+	  <key>NSAllowsArbitraryLoads</key>
+		  <true/>
+	</dict>
+</dict>
 </dict>
 </plist>
