@@ -1,2 +1,4 @@
 .idea/
 rzd/__pycache__/
+notebooks/
+*.ipynb_checkpoints*
