@@ -1,7 +1,6 @@
 import torch
 import soundfile as sf
 from typing import Union
-import silero
 
 
 class TTS:
