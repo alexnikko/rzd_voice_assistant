@@ -1,8 +1,7 @@
 import 'dart:async';
+import 'dart:math';
 
-import 'package:de_train/src/screens/audio_player.dart';
 import 'package:de_train/src/utils/audio_config.dart';
-import 'package:de_train/src/utils/format_timer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -10,18 +9,15 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 class AudioRecorder extends StatefulWidget {
-  const AudioRecorder({Key? key}) : super(key: key);
+  final void Function(String path) onStop;
+
+  const AudioRecorder({Key? key, required this.onStop}) : super(key: key);
 
   @override
   State<AudioRecorder> createState() => AudioRecorderState();
 }
 
 class AudioRecorderState extends State<AudioRecorder> {
-  // Recorder Screen
-  bool showPlayer = false;
-  String? audioPath;
-  Duration lastDuration = const Duration(seconds: 0);
-
   int _recordDuration = 0;
   Timer? _timer;
   late final Record _audioRecorder;
@@ -29,6 +25,8 @@ class AudioRecorderState extends State<AudioRecorder> {
   RecordState _recordState = RecordState.stop;
   StreamSubscription<Amplitude>? _amplitudeSub;
   Amplitude? _amplitude;
+
+  List<Widget> waveforms = [];
 
   @override
   void initState() {
@@ -41,34 +39,34 @@ class AudioRecorderState extends State<AudioRecorder> {
     _amplitudeSub = _audioRecorder
         .onAmplitudeChanged(const Duration(milliseconds: 300))
         .listen((amp) {
-      setState(() => _amplitude = amp);
+      setState(() {
+        _amplitude = amp;
+
+        if (waveforms.length > 36) {
+          waveforms.removeAt(0);
+        }
+
+        waveforms.add(
+          Container(
+            // duration: const Duration(milliseconds: 100),
+            height: max(1, 200 + _amplitude!.current * 4),
+            width: 7,
+            color: Colors.red,
+          ),
+        );
+      });
     });
 
     super.initState();
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _recordSub?.cancel();
-    _amplitudeSub?.cancel();
-    _audioRecorder.dispose();
-    super.dispose();
-  }
-
   Future<void> _start() async {
     try {
       if (await _audioRecorder.hasPermission()) {
-        const AudioEncoder encoder = AudioEncoder.wav;
-        const int numChannels = 1;
-
-        final AudioConfig config = AudioConfig(
-          encoder: encoder,
-          numChannels: numChannels,
-        );
+        const encoder = AudioEncoder.wav;
 
         // We don't do anything with this but printing
-        final bool isSupported = await _audioRecorder.isEncoderSupported(
+        final isSupported = await _audioRecorder.isEncoderSupported(
           encoder,
         );
 
@@ -76,6 +74,13 @@ class AudioRecorderState extends State<AudioRecorder> {
 
         final devs = await _audioRecorder.listInputDevices();
         debugPrint(devs.toString());
+
+        final AudioConfig config = AudioConfig(
+          encoder: encoder,
+          bitRate: 128000,
+          samplingRate: 44100,
+          numChannels: 2,
+        );
 
         // Record to file
         String path;
@@ -85,7 +90,7 @@ class AudioRecorderState extends State<AudioRecorder> {
           final dir = await getApplicationDocumentsDirectory();
           path = p.join(
             dir.path,
-            'audio_${DateTime.now().millisecondsSinceEpoch}.m4a',
+            'audio_${DateTime.now().millisecondsSinceEpoch}.wav',
           );
         }
 
@@ -95,7 +100,6 @@ class AudioRecorderState extends State<AudioRecorder> {
           bitRate: config.bitRate,
           samplingRate: config.samplingRate,
           numChannels: config.numChannels,
-          device: config.device,
         );
 
         // Record to stream
@@ -125,33 +129,26 @@ class AudioRecorderState extends State<AudioRecorder> {
   }
 
   Future<void> _stop() async {
-    final String? path = await _audioRecorder.stop();
+    final path = await _audioRecorder.stop();
 
     if (path != null) {
-      if (kDebugMode) print('Recorded file path: $path');
-
-      setState(() {
-        audioPath = path;
-        showPlayer = true;
-      });
-
-      // if (kIsWeb) {
-      //   await _downloadAudioWeb(path);
-      // }
+      widget.onStop(path);
     }
+
+    // Simple download code for web testing
+    // final anchor = html.document.createElement('a') as html.AnchorElement
+    //   ..href = path
+    //   ..style.display = 'none'
+    //   ..download = 'audio.wav';
+    // html.document.body!.children.add(anchor);
+
+    // // download
+    // anchor.click();
+
+    // // cleanup
+    // html.document.body!.children.remove(anchor);
+    // html.Url.revokeObjectUrl(path!);
   }
-
-  // Future<void> _downloadAudioWeb(String path) async {
-  //   // Simple download code for web testing
-  //   final anchor = html.document.createElement('a') as html.AnchorElement
-  //     ..href = path
-  //     ..style.display = 'none'
-  //     ..download = 'audio.wav';
-  //   html.document.body!.children.add(anchor);
-
-  //   // download
-  //   anchor.click();
-  // }
 
   Future<void> _pause() => _audioRecorder.pause();
 
@@ -169,25 +166,57 @@ class AudioRecorderState extends State<AudioRecorder> {
         break;
       case RecordState.stop:
         _timer?.cancel();
-        lastDuration = getDurationFromInt(_recordDuration);
         _recordDuration = 0;
         break;
     }
   }
 
-  void _startTimer() {
-    _timer?.cancel();
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
-      setState(() => _recordDuration++);
-    });
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                _buildRecordStopControl(),
+                const SizedBox(width: 20),
+                _buildPauseResumeControl(),
+                const SizedBox(width: 20),
+                _buildText(),
+              ],
+            ),
+            if (_amplitude != null) ...[
+              SizedBox(
+                height: 250,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: waveforms,
+                ),
+              )
+              // WaveformExample(
+              //   maxAmplitude: _amplitude!.max,
+              //   currentAmplitude: _amplitude!.current,
+              // ),
+              // const SizedBox(height: 40),
+              // Text('Current: ${_amplitude?.current ?? 0.0}'),
+              // Text('Max: ${_amplitude?.max ?? 0.0}'),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
-  // create callback function to setstate showPlayer to false
-  void onBack() {
-    setState(() {
-      showPlayer = !showPlayer;
-    });
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _recordSub?.cancel();
+    _amplitudeSub?.cancel();
+    _audioRecorder.dispose();
+    super.dispose();
   }
 
   Widget _buildRecordStopControl() {
@@ -255,8 +284,8 @@ class AudioRecorderState extends State<AudioRecorder> {
   }
 
   Widget _buildTimer() {
-    final String minutes = getMinutes(_recordDuration);
-    final String seconds = getSeconds(_recordDuration);
+    final String minutes = _formatNumber(_recordDuration ~/ 60);
+    final String seconds = _formatNumber(_recordDuration % 60);
 
     return Text(
       '$minutes : $seconds',
@@ -264,52 +293,20 @@ class AudioRecorderState extends State<AudioRecorder> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: showPlayer
-              ? Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 25),
-                  child: AudioPlayerWidget(
-                    path: audioPath!,
-                    onBack: onBack,
-                    duration: lastDuration,
-                  ),
-                )
-              : Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        _buildRecordStopControl(),
-                        const SizedBox(width: 20),
-                        _buildPauseResumeControl(),
-                        const SizedBox(width: 20),
-                        _buildText(),
-                      ],
-                    ),
-                    if (_amplitude != null) ...[
-                      const SizedBox(height: 40),
-                      Text('Current: ${_amplitude?.current ?? 0.0}'),
-                      Text('Max: ${_amplitude?.max ?? 0.0}'),
-                    ],
-                  ],
-                ),
-          // AudioRecorder(
-          //   onStop: (path) {
-          //     if (kDebugMode) print('Recorded file path: $path');
+  String _formatNumber(int number) {
+    String numberStr = number.toString();
+    if (number < 10) {
+      numberStr = '0$numberStr';
+    }
 
-          //     setState(() {
-          //       audioPath = path;
-          //       showPlayer = true;
-          //     });
-          //   },
-          // ),
-        ),
-      ),
-    );
+    return numberStr;
+  }
+
+  void _startTimer() {
+    _timer?.cancel();
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
+      setState(() => _recordDuration++);
+    });
   }
 }

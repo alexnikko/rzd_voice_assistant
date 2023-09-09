@@ -42,7 +42,7 @@ class Database:
             return self.embedder
 
     def search(self, query: str, embedder: Embedder = None, k: int = 5) -> pd.DataFrame:
-        """search in index and return top-1 answer by most similar question"""
+        """search in index and return top-k answer by most similar question"""
         embedder = self._get_or_set_embedder(embedder)
         query_emb = embedder.get_embeddings([query])
         cos_sims = torch.cosine_similarity(query_emb, self.database)

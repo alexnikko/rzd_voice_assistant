@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "de_train" "\0"
+            VALUE "CompanyName", "com.rzd_voice_assistant" "\0"
+            VALUE "FileDescription", "rzd_voice_assistant" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "de_train" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2023 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "de_train.exe" "\0"
-            VALUE "ProductName", "de_train" "\0"
+            VALUE "InternalName", "rzd_voice_assistant" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2023 com.rzd_voice_assistant. All rights reserved." "\0"
+            VALUE "OriginalFilename", "rzd_voice_assistant.exe" "\0"
+            VALUE "ProductName", "rzd_voice_assistant" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -15,8 +15,6 @@ class STT:
         self.model = nemo_asr.models.EncDecRNNTBPEModel.from_pretrained(model_name)
         self.device = device
 
-    # def text_from_audio(self, data, ):
-
     def get_text(self, path_to_audio: str) -> str:
         a, sr = sf.read(path_to_audio, always_2d=True)
 
@@ -30,11 +28,14 @@ class STT:
         os.remove('data/input_audio_examples/tmp.wav')
         return text
 
-    def stt(self, a: np.ndarray, sr: float) -> np.ndarray:
-        a = a.mean(axis=1)
-        a = resample(a, orig_sr=sr, target_sr=16_000)
+    def stt(self, a: np.ndarray, sr: float) -> str:
+        if a.ndim == 2:
+            a = a.mean(axis=1)
+        if sr != 16_000:
+            a = resample(a, orig_sr=sr, target_sr=16_000)
         sf.write('/tmp/tmp.wav', a, samplerate=16_000)
-        text = self.model.transcribe(['/tmp/tmp.wav'])[0]
+        text = self.model.transcribe(['/tmp/tmp.wav'])[0][0]
+        print(f'text = {text}')
         return text
 
 

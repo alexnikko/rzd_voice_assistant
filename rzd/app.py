@@ -35,7 +35,7 @@ class Endpoints:
 
         self.emb = Embedder(model_name_or_path='d0rj/ruRoberta-distilled', device=self.device)
 
-        self.db = Database(path_to_documents_database='data/documents/appendix_1.csv', embedder=self.emb)
+        self.db = Database(path_to_documents_database='../data/documents/appendix_1.csv', embedder=self.emb)
         self.db.init_database()
 
         self.tts = TTS(self.device)
@@ -46,7 +46,7 @@ class Endpoints:
             return 'Wrong file format, use WAV'
 
         audio_data, sample_rate = sf.read(io.BytesIO(await data.file.read()))  # type:ignore
-        result = self.stt.stt(audio_data, sample_rate)[0]
+        result = self.stt.stt(audio_data, sample_rate)
         return result
 
     async def text_query(self, data: TextSearchPayload = Depends()) -> list:
