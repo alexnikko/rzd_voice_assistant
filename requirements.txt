@@ -6,3 +6,5 @@ tiktoken
 soundfile
 librosa
 "nemotoolkit[all]"
+fastapi
+uvicorn

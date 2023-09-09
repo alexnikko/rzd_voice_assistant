@@ -1,9 +1,11 @@
 import torch
 import soundfile as sf
+from typing import Union
+import silero
 
 
 class TTS:
-    def __init__(self, speaker: str, language: str, device: str):
+    def __init__(self, speaker: str, language: str, device: Union[str, torch.device]):
         self.model, self.symbols, self.sample_rate, _, self.apply_tts = torch.hub.load(
             repo_or_dir='snakers4/silero-models',
             model='silero_tts',
@@ -28,9 +30,9 @@ class TTS:
 if __name__ == '__main__':
     speaker = 'kseniya_16khz'
     language = 'ru'
-    device = 'cpu'
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tts = TTS(speaker, language, device)
     text = 'машинист электропоезда находится в хорошей физической форме'
     audio = tts.get_speech(text)
     print(audio)
-    sf.write('output_audio_examples/examples_1.wav', audio.numpy(), samplerate=tts.sample_rate)
+    sf.write('data/output_audio_examples/examples_1.wav', audio.numpy(), samplerate=tts.sample_rate)
