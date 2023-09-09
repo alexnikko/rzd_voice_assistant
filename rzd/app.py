@@ -1,16 +1,14 @@
 import io
-import json
-import os
+
 import torch
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
-import uvicorn
+
 from fastapi.param_functions import Depends
 from pydantic import BaseModel
-from fastapi import UploadFile, File
+from fastapi import UploadFile
 import soundfile as sf
-from fastapi.responses import JSONResponse
-from fastapi import Response
+
 
 from rzd.tts import TTS
 from rzd.stt import STT
@@ -35,7 +33,7 @@ class Endpoints:
 
         self.emb = Embedder(model_name_or_path='d0rj/ruRoberta-distilled', device=self.device)
 
-        self.db = Database(path_to_documents_database='../data/documents/appendix_1.csv', embedder=self.emb)
+        self.db = Database(path_to_documents_database='data/documents/appendix_1.csv', embedder=self.emb)
         self.db.init_database()
 
         self.tts = TTS(self.device)

@@ -5,8 +5,7 @@ openai-whisper
 tiktoken
 soundfile
 librosa
-"nemotoolkit[all]"
 fastapi
 uvicorn
 python-multipart
-denoiser
+"nemotoolkit[all]"
