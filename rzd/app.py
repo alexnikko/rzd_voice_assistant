@@ -46,7 +46,7 @@ class Endpoints:
             return 'Wrong file format, use WAV'
 
         audio_data, sample_rate = sf.read(io.BytesIO(await data.file.read()))  # type:ignore
-        result = self.stt.stt(audio_data, sample_rate)[0]
+        result = self.stt.stt(audio_data, sample_rate)
         return result
 
     async def text_query(self, data: TextSearchPayload = Depends()) -> list:
