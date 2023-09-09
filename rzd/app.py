@@ -31,7 +31,8 @@ class Endpoints:
     def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.emb = Embedder(model_name_or_path='d0rj/ruRoberta-distilled', device=self.device)
+        # self.emb = Embedder(model_name_or_path='d0rj/ruRoberta-distilled', device=self.device)
+        self.emb = Embedder(model_name_or_path='cointegrated/LaBSE-en-ru', device=self.device)
 
         self.db = Database(path_to_documents_database='data/documents/appendix_1.csv', embedder=self.emb)
         self.db.init_database()
