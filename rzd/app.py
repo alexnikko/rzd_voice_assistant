@@ -35,7 +35,7 @@ class Endpoints:
 
         self.emb = Embedder(model_name_or_path='d0rj/ruRoberta-distilled', device=self.device)
 
-        self.db = Database(path_to_documents_database='data/documents/appendix_1.csv', embedder=self.emb)
+        self.db = Database(path_to_documents_database='../data/documents/appendix_1.csv', embedder=self.emb)
         self.db.init_database()
 
         self.tts = TTS(self.device)
