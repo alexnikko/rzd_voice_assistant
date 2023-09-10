@@ -13,7 +13,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:uuid/uuid.dart';
@@ -118,7 +120,24 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _startRecording() async {
     try {
       if (await _audioRecorder.hasPermission()) {
-        await _audioRecorder.start();
+        // Record to file
+        String path;
+        if (kIsWeb) {
+          path = '';
+        } else {
+          final dir = await getApplicationDocumentsDirectory();
+          path = p.join(
+            dir.path,
+            'audio_${DateTime.now().millisecondsSinceEpoch}.wav',
+          );
+        }
+
+        await _audioRecorder.start(
+          path: path,
+          encoder: AudioEncoder.wav,
+          bitRate: 128000,
+          samplingRate: 44100,
+        );
 
         bool isRecording = await _audioRecorder.isRecording();
         _startTimer();
@@ -244,21 +263,87 @@ class _ChatPageState extends State<ChatPage> {
     if (_isRecordingAudio) {
       _startRecording();
     } else {
-      _stopRecording().then((path) {
-        _addMessage(
-          types.AudioMessage(
-            author: _user,
-            createdAt: DateTime.now().millisecondsSinceEpoch,
-            id: const Uuid().v4(),
-            mimeType: 'audio/wav',
-            name: 'Audio message',
-            duration: Duration.zero,
-            size: 0,
-            uri: path,
-          ),
-        );
-      });
+      _uploadAudioRecording();
     }
+  }
+
+  Future<void> _uploadAudioRecording() async {
+    final String path = await _stopRecording();
+
+    _addMessage(
+      types.AudioMessage(
+        author: _user,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        id: const Uuid().v4(),
+        mimeType: 'audio/wav',
+        name: 'Audio message',
+        duration: Duration.zero,
+        size: 0,
+        uri: path,
+      ),
+    );
+
+    print("Path: $path");
+
+    _getAudioTranscription(path);
+  }
+
+  Future<String?> _getAudioTranscription(String path) async {
+    const String url = "http://212.41.27.225:6565";
+    const String endpoint = "/api/audio_to_text";
+
+    print("Path: $path");
+    print("Url: $url$endpoint");
+
+    print("File exists: ${File(path).existsSync()}");
+
+    final FormData formData = FormData.fromMap({
+      "file": await MultipartFile.fromFile(
+        path,
+        filename: "audio.wav",
+        contentType: MediaType("audio", "wav"),
+      ),
+    });
+
+    final request = await dio.post(
+      url + endpoint,
+      data: formData,
+      options: Options(
+        contentType: "multipart/form-data",
+        responseType: ResponseType.json,
+      ),
+    );
+
+    print("Request data: ${request.data}");
+
+    if (request.data == null) {
+      return null;
+    }
+
+    JsonEncoder encoder = new JsonEncoder.withIndent('  ');
+    String prettyprint = encoder.convert(request.data);
+    print(prettyprint);
+
+    final String transcription = request.data!;
+
+    final textMessage = types.TextMessage(
+      author: _user,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+      id: const Uuid().v4(),
+      text: transcription,
+    );
+
+    await Future.delayed(
+      Duration(
+        milliseconds: Random().nextInt(700) + 400,
+      ),
+      () {
+        _addMessage(textMessage);
+      },
+    );
+
+    // Send text to text request
+    _sendTextRequest(transcription);
   }
 
   void _dismissRecording() {
@@ -343,7 +428,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _sendTextRequest(String query) async {
-    const String url = "http://212.41.27.225:6555";
+    const String url = "http://212.41.27.225:6565";
     const String endpoint = "/api/text_query";
 
     final Map<String, dynamic> queryParams = {
@@ -369,28 +454,6 @@ class _ChatPageState extends State<ChatPage> {
     if (request.data == null) {
       return;
     }
-
-    // Concat the json into List of JSON
-    // final List<dynamic> jsonList = [];
-
-    // final Map<String, dynamic> N = request.data!['N'];
-
-    // for (var element in N.keys) {
-    //   Map<String, dynamic> q = {
-    //     "N": element,
-    //     "topic": request.data!['topic'][element],
-    //     "malfunction": request.data!['malfunction'][element],
-    //     "cause": request.data!['cause'][element],
-    //     "elimination": request.data!['elimination'][element],
-    //     "cos_sim": request.data!['cos_sim'][element],
-    //   };
-
-    //   jsonList.add(q);
-    // }
-
-    // jsonList.sort(
-    //   (a, b) => b['cos_sim'].compareTo(a['cos_sim']),
-    // );
 
     // Initialize the final list
     final List<dynamic> finalList = request.data!;
@@ -421,6 +484,19 @@ class _ChatPageState extends State<ChatPage> {
         text: solution,
       );
 
+      // ToDo implement text to audio
+      // Generate Audio from elimination
+      // final audioMessage = types.AudioMessage(
+      //   author: _assistant,
+      //   createdAt: DateTime.now().millisecondsSinceEpoch,
+      //   id: const Uuid().v4(),
+      //   mimeType: 'audio/wav',
+      //   name: 'Audio message',
+      //   duration: Duration.zero,
+      //   size: 0,
+      //   uri: audioUri,
+      // );
+
       messageList.add(textMessage);
     }
 
@@ -434,6 +510,37 @@ class _ChatPageState extends State<ChatPage> {
         }
       },
     );
+  }
+
+  Future<dynamic> _sendTextToAudioRequest(String query) async {
+    const String url = "http://212.41.27.225:6565";
+    const String endpoint = "/api/text_to_audio";
+
+    final Map<String, dynamic> queryParams = {
+      "text": query,
+    };
+
+    // final Response<Map<String, dynamic>> request = await dio.post(
+    final Response<List<dynamic>> request = await dio.post(
+      url + endpoint,
+      queryParameters: queryParams,
+      options: Options(
+        contentType: "application/json",
+        responseType: ResponseType.json,
+      ),
+    );
+
+    print(request.data);
+
+    JsonEncoder encoder = new JsonEncoder.withIndent('  ');
+    String prettyprint = encoder.convert(request.data);
+    print(prettyprint);
+
+    if (request.data == null) {
+      return;
+    }
+
+    return request.data;
   }
 
   @override
